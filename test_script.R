@@ -1,1 +1,0 @@
-mean(mtcars$mpg)
