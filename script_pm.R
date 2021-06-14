@@ -6,12 +6,12 @@ rm(list = ls())
 ###############READ IN DATA AND CLEAN #################
 
 #1. deprivation index data
-deprivation <- readr::read_csv2("deprivation.csv") %>%
+deprivation <- readr::read_csv2("raw_data/deprivation.csv") %>%
     as_tibble() 
     #mutate(kreis = str_replace(Raumeinheit, ", Stadt", "")) %>% #make new variable where Stadt is deleted 
 
 #2. citizen data
-cdata <- readr::read_csv2("Einwohner_NDS_Kreise_2017.csv")
+cdata <- readr::read_csv2("raw_data/Einwohner_NDS_Kreise_2017.csv")
 cdata <- cdata[-c(5356:5361),]
 ind_nas <- which(rowSums(is.na(cdata)) == 4)
 cdata <- cdata[-ind_nas, ]
@@ -47,7 +47,7 @@ citizens <- data %>%
            kreis = str_remove(kreis, "[0-9]+ +")) %>% 
     select(kreis, kreisnummer, variable, everything())
 
-write.csv(citizens, "citizens_wide.csv", row.names = F)
+write.csv(citizens, "clean_data/citizens_wide.csv", row.names = F)
 
 
 #3. suicide rates per kreis    
@@ -57,7 +57,7 @@ write.csv(citizens, "citizens_wide.csv", row.names = F)
 
 rm(list = ls())
 
-d <- readr::read_csv2("TODESURS78_NDS_Kreise_2017.csv", na = "-")
+d <- readr::read_csv2("raw_data/TODESURS78_NDS_Kreise_2017.csv", na = "-")
 column_names <- pull( d[2:12, 1])
 nkreise = nrow(d)/12
 
@@ -88,7 +88,7 @@ suicide <- data %>%
 
 suicide
 
-write.csv(suicide, "suicides_wide.csv", row.names = F)
+write.csv(suicide, "clean_data/suicides_wide.csv", row.names = F)
 
 # 1 zeile in 3er paket:  insgesamt pro altergruppe
 # 2. zeile in 3er paket: männlich pro altergruppe
