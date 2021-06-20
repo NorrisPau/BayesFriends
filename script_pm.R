@@ -86,11 +86,12 @@ suicide <- data %>%
     rename(age_80_other = age_80u.ä.) %>%  
     select(kreis, kreisnummer, total = insgesamt, age_under_20, age_20_30:age_80_other, variable)
 
-suicide
+summary(suicide$age_under_20)
+class(suicide$age_under_20)
 
 write.csv(suicide, "clean_data/suicides_wide.csv", row.names = F)
 
 # 1 zeile in 3er paket:  insgesamt pro altergruppe
 # 2. zeile in 3er paket: männlich pro altergruppe
 # 3. zeile in 3er paket: weiblich pro altergruppe
-#
+
