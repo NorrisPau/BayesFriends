@@ -95,3 +95,7 @@ write.csv(suicide, "clean_data/suicides_wide.csv", row.names = F)
 # 2. zeile in 3er paket: männlich pro altergruppe
 # 3. zeile in 3er paket: weiblich pro altergruppe
 
+
+
+
+
