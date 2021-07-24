@@ -4,13 +4,53 @@ library(stringr)
 rm(list = ls())
 
 ###############READ IN DATA AND CLEAN #################
+#We have 3 datasets
+#1. Deprivation Indices: GISD_NDS_Kreise_2017_final.csv in raw_data --> GISD_wide.csv in clean_data
+#2. Citizens data (population of each kreis) Einwohner_NDS_Kreise_2017.csv in raw_data --> citizens_wide in clean_data
+#3. Suicide numbers of each kreis: TODESURS78_NDS_Kreise_2017_final.csv --> clean_data/suicides_wide.csv
+#and --> processed_wide including age-standardized suicide mortality rates 
 
-#1. deprivation index data
-deprivation <- readr::read_csv2("raw_data/deprivation.csv") %>%
+####### 1. Deprivation index data: GISD #####
+GISD <- readr::read_csv2("raw_data/GISD_NDS_Kreise_2017_final.csv") %>%
     as_tibble() 
     #mutate(kreis = str_replace(Raumeinheit, ", Stadt", "")) %>% #make new variable where Stadt is deleted 
 
-#2. citizen data
+#Clean & Standardize Indices
+GISD <- GISD[-1,-3]
+
+# rename indicators
+varname <- c('X') # define a list of varying "varname"
+n <- c(8) # there are 8 indicators in total
+names(GISD)[3:ncol(GISD)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), varname, n))
+# X_1 = 'Arbeitslosigkeit', engl.: Unemployment
+# X_2 = 'Beschäftigte am Wohnort mit akademischen Anschluss' (!= Beschäftigte am Wohnort mit Fach-(Hochschulabschluss)), engl.: Employees at place of residence with a technical (university) degree
+# X_3 = 'Beschäftigtenquote'
+# X_4 = 'Bruttoverdienst' (!= Bruttolohn und -gehalt), engl.: Gross wage and salary
+# X_5 = 'Haushaltseinkommen' (!= Haushaltsnettoeinkommen), engl.: Net household income
+# X_6 = 'Schulabgänger ohne Abschluss', engl.: School leavers without qualifications
+# X_7 = 'Schuldnerquote', engl.: Debtor rate
+# X_8 = 'Einkommenssteuer' (!= Steuereinnahmen), engl. Tax revenues
+##### Z-Transformation of GISD data #####
+# Z-Standardization fo all indicators; transformation of the variables of a distribution for better comparability of the different value ranges
+# Z-score = (X - µ)/ sqrt(var)
+# GISD <- scale(GISD.select[, X_1:X_8], center = TRUE, scale = TRUE)
+# Z-standardization and saving as ZX_i
+GISD$ZX_1 <- scale(GISD$X_1)
+GISD$ZX_2 <- scale(GISD$X_2)
+GISD$ZX_3 <- scale(GISD$X_3)
+GISD$ZX_4 <- scale(GISD$X_4)
+GISD$ZX_5 <- scale(GISD$X_5)
+GISD$ZX_6 <- scale(GISD$X_6)
+GISD$ZX_7 <- scale(GISD$X_7)
+GISD$ZX_8 <- scale(GISD$X_8)
+# Strip first characters of 'Kennziffer' in order to merge later
+GISD$Kennziffer<-substring(GISD$Kennziffer, 3)
+write_csv(GISD, "clean_data/GISD_wide.csv")
+
+
+
+############### 2. Citizen data ###############
+#Read in and clean 
 cdata <- readr::read_csv2("raw_data/Einwohner_NDS_Kreise_2017.csv")
 cdata <- cdata[-c(5356:5361),]
 ind_nas <- which(rowSums(is.na(cdata)) == 4)
@@ -48,13 +88,12 @@ citizens <- data %>%
 write.csv(citizens, "clean_data/citizens_wide.csv", row.names = F)
 
 
-#3. suicide rates per kreis    
+############### 3. suicide rates per kreis ##################
 #suicide rates with age groups data
-#make variable kreis: 
-#line 1: 12 -> take 
+#make variable kreis: line 1: 12 -> take 
 
 ### 3rd: Suicide numbers on ‘Kreis’-Level
-rm(list = ls())
+#rm(list = ls())
 d <- readr::read_csv2("raw_data/TODESURS78_NDS_Kreise_2017_final.csv", na = "-")
 column_names <- pull( d[2:12, 1])
 nkreise = nrow(d)/12
@@ -91,11 +130,45 @@ suicides <- data
 write.csv(suicides, "clean_data/suicides_wide.csv", row.names = F)
 
 
-# 1 zeile in 3er paket:  insgesamt pro altergruppe
-# 2. zeile in 3er paket: männlich pro altergruppe
-# 3. zeile in 3er paket: weiblich pro altergruppe
+#This needs to be fixed (Niklas?)
 
 
-
-
-
+##### Calculation of age-standardized suicide mortality rate (SMR) #####
+# The following is calculated for each 'Kreis' - Why? In order to also take into account the age-distribution of a population
+# 1st step: age-specific suicide rate (age specific SR)
+# age-specific SR =  (age-specific no. of suicides / age-specific no. of population) x 100.000 (inhabitants)
+citizens
+suicides
+asSR <- citizens
+i <- 4
+while(i <= 11) {
+    asSR[,i] <- (suicides[,i] / citizens[,i]) * 100000
+    i <- i + 1
+}
+write_csv(asSR, "clean_data/asSR_wide.csv")
+# 2nd step: Caluclation of age-specific proportions of population
+# age-specific proportion of population = age-specific no. of population / total no. of population
+asProp <- citizens
+i <- 4
+while(i <= 11) {
+    asProp[,i] <- (citizens[,i] / citizens[,3])
+    i <- i + 1
+}
+write_csv(asProp, "clean_data/asSR_wide.csv")
+# 3rd step: age-standardized suicide mortality rate (SMR)
+# age-standardized SMR = sum(age-specific SR's x age-specific proportion of population)
+asSMR <- citizens
+i <- 4
+while(i <= 11) {
+    asSMR[,i] <- (asSR[,i] * asProp[,i])
+    i <- i + 1
+}
+asSMR %>%
+    mutate(total = select(., c(age_under_20, age_20_30, age_30_40, age_40_50, age_50_60, age_60_70, age_70_80, age_over_80)) %>% rowSums(na.rm = TRUE))
+write_csv(asSMR, "clean_data/asSR_wide.csv")
+##### Merging processed GISD and SMR #####
+# Merge by row names (by=0 or by="row.names")
+Processed %>%
+    merge(GISD, asSMR, by=0, all=TRUE)
+select()
+write_csv(Processed, "clean_data/processed.csv")

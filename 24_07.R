@@ -35,13 +35,6 @@ data <- data[-1, -12]
 data <- data[-c(1, 12, 14, 21, 33), ]
 # data
 
-
-
-
-
-# Substitute entries ‘NA’ by value 0
-data[is.na(data)] = 0
-data$total <- as.numeric(as.factor(data$total))
 suicides <- data
 # suicides
-write.csv(suicides, “clean_data/suicides_wide.csv”, row.names = F)
+write.csv(suicides, "clean_data/suicides_wide.csv", row.names = F)

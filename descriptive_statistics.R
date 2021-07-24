@@ -1,31 +1,29 @@
 library(dplyr)
 library(tidyverse)
 library(psych) #for summary statistics 
+library(plyr)
+library(stringr)
+rm(list = ls())
 
+############Descriptive Statistics 
 
-#Read in clean dataset
+#Read in clean datasets
 suicide <- read.csv("clean_data/suicides_wide.csv") %>%  
-    as_tibble() %>% 
-    subset(variable != "Männlich" & variable != "Weiblich")   
+    as_tibble() 
 
-deprivation <- readr::read_csv2("raw_data/deprivation.csv") %>%
+deprivation <- read.csv("clean_data/GISD_wide.csv") %>%
     as_tibble() %>% 
     dplyr::rename (kreis_number = Kennziffer, 
             kreis = Raumeinheit,
-            kreis_type = Aggregat,
-            unemployment_rate = Arbeitslosenquote, 
-            employment_rate= Beschäftigtenquote, 
-            net_household_income = Haushaltseinkommen, 
-            gross_wage_and_salary= Bruttoverdienst, 
-            employees_without_academic_degree = `Quote Beschäftigte ohne Berufsabschluss`, 
-            employees_with_academic_degree = `Quote Beschäftigte mit Berufsabschluss`, 
-            debtor_rate = Schuldnerquote, 
-            school_leavers_with_qualification = `Schulabgänger mit Hochschulreife`, 
-            school_leavers_without_qualification = `Schulabgänger ohne Abschluss`, 
-            tax_revenues = Einkommensteuer, 
-            doctor_per_inhabitant = `Ärzte je  Einwohner`, 
-            male_long_unemployment_rate = `Männliche Langzeitarbeitslose`)
-deprivation <- deprivation[-c(1),]
+            unemployment_rate = ZX_1, 
+            employees_residence_technical_university_degree = ZX_2, 
+            employment_rate = ZX_3, 
+            gross_wage_and_salary= ZX_4,
+            net_household_income = ZX_5, 
+            school_leavers_without_qualification = ZX_6,
+            debtor_rate = ZX_7, 
+            tax_revenues = ZX_8) %>% 
+    select(-c((starts_with("X_"))))
 
 citizens <-  read.csv("clean_data/citizens_wide.csv") %>%  as_tibble()
 
@@ -55,7 +53,7 @@ suicide_summary <- suicide %>% filter(kreis != "Niedersachsen") %>%
 
 #summarize deprivation statistics
 deprivation_summary <- deprivation %>% 
-    select(-c(kreis, kreis_number, kreis_type)) %>% 
+    select(-c(kreis, kreis_number)) %>% 
     mutate_all(as.numeric) %>% 
     describe(fast = TRUE) %>% as.matrix() %>% 
     subset(select = -c(se, n,vars, range))
@@ -66,26 +64,11 @@ rownames(full_summary) <- c("Number of Suicides 2017", "Total Population 2017")
 
 
 ##########Find out distribution for dataset    
-#following this example: https://stats.stackexchange.com/questions/132652/how-to-determine-which-distribution-fits-my-data-best
-library(fitdistrplus)
-library(logspline)
 hist(deprivation$unemployment_rate)
 hist(deprivation$net_household_income)
 hist(deprivation$gross_wage_and_salary)
-hist(deprivation$employees_without_academic_degree, bins = 45)
-hist(deprivation$employees_with_academic_degree)
 hist(deprivation$debtor_rate)
-hist(deprivation$school_leavers_with_qualification)
 hist(deprivation$school_leavers_without_qualification)
-
-descdist(deprivation$unemployment_rate, discrete = FALSE)
-#normal, uniform 
-
-fit.norm <- fitdist(deprivation$unemployment_rate, "norm")
-plot(fit.norm)
-
-descdist(deprivation$net_household_income, discrete = FALSE)
-
 
 
 
