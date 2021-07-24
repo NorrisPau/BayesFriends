@@ -64,7 +64,27 @@ full_summary <- rbind(suicide_summary,pop_2017)
 rownames(full_summary) <- c("Number of Suicides 2017", "Total Population 2017")
 #full_summary <- rbind(full_summary, deprivation_summary)   #This changes the values - Don't know how to fix now
 
-    
+
+##########Find out distribution for dataset    
+#following this example: https://stats.stackexchange.com/questions/132652/how-to-determine-which-distribution-fits-my-data-best
+library(fitdistrplus)
+library(logspline)
+hist(deprivation$unemployment_rate)
+hist(deprivation$net_household_income)
+hist(deprivation$gross_wage_and_salary)
+hist(deprivation$employees_without_academic_degree, bins = 45)
+hist(deprivation$employees_with_academic_degree)
+hist(deprivation$debtor_rate)
+hist(deprivation$school_leavers_with_qualification)
+hist(deprivation$school_leavers_without_qualification)
+
+descdist(deprivation$unemployment_rate, discrete = FALSE)
+#normal, uniform 
+
+fit.norm <- fitdist(deprivation$unemployment_rate, "norm")
+plot(fit.norm)
+
+descdist(deprivation$net_household_income, discrete = FALSE)
 
 
 
