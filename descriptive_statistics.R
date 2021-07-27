@@ -1,86 +1,107 @@
 library(dplyr)
 library(tidyverse)
-library(psych) #for summary statistics 
-library(plyr)
+library(vtable)#for summary statistics
 library(stringr)
+library(ggplot2) #for plots
+library(plotly)
+
 rm(list = ls())
 
 ############Descriptive Statistics 
 
 #Read in clean datasets
 suicide <- read.csv("clean_data/suicides_wide.csv") %>%  
-    as_tibble() 
-
-deprivation <- read.csv("clean_data/GISD_wide.csv") %>%
     as_tibble() %>% 
-    dplyr::rename (kreis_number = Kennziffer, 
-            kreis = Raumeinheit,
-            unemployment = ZX_1, 
-            employees_residence_technical_university_degree = ZX_2, 
-            employment_rate = ZX_3, 
-            gross_wage_and_salary= ZX_4,
-            net_household_income = ZX_5, 
-            school_leavers_without_qualification = ZX_6,
-            debtor_rate = ZX_7, 
-            tax_revenues = ZX_8) %>% 
-    select(-c((starts_with("X_"))))
+    select(kreis,kreisnummer,suicide_total = total)
 
-citizens <-  read.csv("clean_data/citizens_wide.csv") %>%  as_tibble()
+smr_deprivation <- read.csv("clean_data/Processed_wide.csv") %>% 
+    select(-(X)) %>% 
+    as_tibble() %>% 
+    dplyr::rename (
+        kreisnummer = Kennziffer, 
+        kreis = Kreis, 
+        unemployment = ZX_1, 
+        employees_residence_technical_university_degree = ZX_2, 
+        employment_rate = ZX_3, 
+        gross_wage_and_salary= ZX_4,
+        net_household_income = ZX_5, 
+        school_leavers_without_qualification = ZX_6,
+        debtor_rate = ZX_7, 
+        tax_revenues = ZX_8) 
 
+citizens <-  read.csv("clean_data/citizens_wide.csv") %>%  as_tibble() %>% 
+    select(kreis, kreisnummer, population_kreis = total)
+
+#Merge all data together
+full_data <- citizens %>%  
+    select(-kreis) %>%  
+    left_join(suicide, by= "kreisnummer") %>% 
+    select(-kreis) %>%  
+    left_join(smr_deprivation, by = "kreisnummer")
+    
 
 ######## Descriptive Statistics ######
-###Summary Statistics 
+###Summary Statistics-> Outputs a latexcode to put into overleaf
 
-#summarize population statistics 
-pop_2017 <- citizens %>%  
-    mutate(insgesamt = as.numeric(insgesamt)) %>%  
-    select(insgesamt) %>%  
-    mutate(mean = mean(insgesamt), 
-           sd = sd(insgesamt), min = min(insgesamt), 
-           max = max(insgesamt)) %>% slice_tail() %>% 
-    select(-insgesamt) %>% as.matrix() 
-
-#summarize suicide statistics:
-suicide_summary <- suicide %>% filter(kreis != "Niedersachsen") %>% 
-    select(kreis, total) %>% 
-    mutate(mean = mean(total), 
-           sd = sd(total), 
-           max = max(total), 
-           min = min(total)) %>% 
-    select(-kreis ,-total) %>% 
-    slice_tail() %>% 
-    as.matrix()
-
-#summarize deprivation statistics
-deprivation_summary <- deprivation %>% 
-    select(-c(kreis, kreis_number)) %>% 
-    mutate_all(as.numeric) %>% 
-    describe(fast = TRUE) %>% as.matrix() %>% 
-    subset(select = -c(se, n,vars, range))
-
-full_summary <- rbind(suicide_summary,pop_2017)
-rownames(full_summary) <- c("Number of Suicides 2017", "Total Population 2017")
-#full_summary <- rbind(full_summary, deprivation_summary)   #This changes the values - Don't know how to fix now
-
-
+full_data %>%  select(-kreisnummer) %>% 
+    relocate(SMR, .before = kreis) %>% 
+    relocate(DI, .after = SMR) %>% 
+    rename('Age-standardized suicide rate (per 100,000)' = SMR, 
+           'Employee residence with technical university degree' = employees_residence_technical_university_degree, 
+           'Net household income' = net_household_income, 
+           'Deprivation index' = DI, 
+           'Number of suicides 2017' = suicide_total, 
+           'Total population 2017' = population_kreis, 
+           'Tax revenues' = tax_revenues, 
+           'Debtor rate' = debtor_rate, 
+           'Gross wage and salary' = gross_wage_and_salary, 
+           'School leavers without qualification' = school_leavers_without_qualification,
+           'Unemployment' = unemployment,
+           'Employment rate' = employment_rate) %>% 
+   st( summ=c(     'mean(x)',
+                    'median(x)',
+                    'sd(x)',
+                    'min(x)',
+                    'max(x)'), 
+                    out = 'latex', 
+                    file = 'summary.tx'
+                    )
 
 ###########Plots
 #1. Plot: Regression line between deprivation index and suicide deaths per 100.000 
-summary(suicides) 
-summary(deprivation)
-# calculate deprivation index as in paper: "The standardized Z-scores for the eight indicators were summed up
-# to create the deprivation index." 
-deprivation <- deprivation %>%  
-    mutate(deprivation = rowSums(.[3:10])) %>% 
-    arrange(desc(deprivation))
+full_data %>%  
+    select(DI, SMR, population_kreis, kreis) %>% 
+    ggplot(aes(x = DI, y = SMR, size = population_kreis))+
+    stat_smooth(geom = "line",
+                method ="lm", 
+                alpha = 0.3,
+                se = FALSE)+
+    geom_point(aes(size = population_kreis), alpha = .7, color = "pink") +
+    geom_text(aes(label=kreis),alpha = 0.8) +
+  #  scale_color_manual(values = lacroix_palette(n=6, name="PeachPear"))+
+    scale_size_continuous(breaks = seq(50000, 1150000, 100000), name = "Population of Kreis")+
+    labs(x = "Deprivation Index", 
+         y = "Age-standardized suicide rate (per 100,000)")+
+    theme(legend.position = "vertical") %>% 
+  ggplotly()
 
-f <- deprivation %>%  
-    mutate(employees_residence_technical_university_degree = employees_residence_technical_university_degree*(-1),
-           employment_rate = employment_rate*(-1),
-           gross_wage_and_salary = gross_wage_and_salary*(-1),
-           net_household_income = net_household_income*(-1),
-           tax_revenues = tax_revenues*(-1)) %>% 
-    mutate(deprivation = rowSums(.[3:10])) %>% 
-    arrange(desc(deprivation))
+#2. Plot: Quantiles of Deprivation Index and Suicide Deaths per 100,000
 
-colnames(deprivation)
+g <- full_data %>%  
+  mutate(quantile_rank = ntile(desc(DI),5)) %>%  
+  mutate(quantile_rank = as.factor(quantile_rank))
+
+
+g %>%  
+  group_by(quantile_rank) %>%  
+  ggplot(aes(x = quantile_rank, y = SMR))+
+  geom_boxplot(aes(color = quantile_rank))+
+  theme_minimal()+
+  labs(x = "Deprivation Index Quantiles, 1 = Least deprived, 5 = Most deprived", 
+       y = "Age-standardized suicide rate (per 100,000)")+
+  theme(legend.position = "none")
+  
+
+
+
+

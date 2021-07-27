@@ -66,7 +66,7 @@ GISD <- GISD %>%
            ZX_5 = ZX_5*(-1),
            ZX_8 = ZX_8*(-1)) %>% 
     mutate(DI = rowSums(.[3:10])) %>% 
-    arrange(desc(DI))
+    arrange(desc(DI)) #Overall Deprivation Index per Kreis = DI
 
 write.csv(GISD, "clean_data/GISD_wide.csv")
 
@@ -211,7 +211,6 @@ asSMR <- as_tibble(asSMR) %>%
 write.csv(asSMR, "clean_data/asSMR_wide.csv")
 
 ##### Merging processed GISD and SMR #####
-# Merge by row names (by=0 or by="row.names")
 Processed <-
     left_join(GISD, asSMR, by="Kennziffer") %>% 
     arrange(desc(SMR))
