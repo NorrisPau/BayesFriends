@@ -44,47 +44,85 @@ GISD$ZX_6 <- scale(GISD$X_6)
 GISD$ZX_7 <- scale(GISD$X_7)
 GISD$ZX_8 <- scale(GISD$X_8)
 # Strip first characters of 'Kennziffer' in order to merge later
-GISD$Kennziffer<-substring(GISD$Kennziffer, 3)
-write_csv(GISD, "clean_data/GISD_wide.csv")
+GISD$Kennziffer<-substring(GISD$Kennziffer, 3) 
 
+GISD <- GISD %>% as_tibble(GISD) %>%
+    select(Kennziffer, Kreis = Raumeinheit, ZX_1, ZX_2, ZX_3, ZX_4, ZX_5, ZX_6, ZX_7, ZX_8)
+
+#Change signs of variables, 
+# because logically, a high employment rate does not contribute to more deprivation,
+# but a high debtor rate does. So we put all indicators on the same interpretation scale
+
+# employees_residence_technical_university_degree = ZX_2
+# employment_rate = ZX_3
+# gross_wage_and_salary = ZX_4
+# net_household_income = ZX_5
+# tax_revenues = ZX_8
+
+GISD <- GISD %>%  
+    mutate(ZX_2 = ZX_2*(-1),
+           ZX_3 = ZX_3*(-1), 
+           ZX_4 = ZX_4*(-1), 
+           ZX_5 = ZX_5*(-1),
+           ZX_8 = ZX_8*(-1)) %>% 
+    mutate(DI = rowSums(.[3:10])) %>% 
+    arrange(desc(DI))
+
+write.csv(GISD, "clean_data/GISD_wide.csv")
 
 
 ############### 2. Citizen data ###############
-#Read in and clean 
+### 2nd: Citizen numbers on 'Kreis'-level
+
 cdata <- readr::read_csv2("raw_data/Einwohner_NDS_Kreise_2017.csv")
 cdata <- cdata[-c(5356:5361),]
 ind_nas <- which(rowSums(is.na(cdata)) == 4)
 cdata <- cdata[-ind_nas, ]
-
 data <- data.frame()
 for (j in 1:51) {
     
     indx <- 103 * (j-1) + 1
-    
-    #print(indx:(indx+102))
     
     transp <- t(cdata[indx:(indx+102), ])
     transp[,1] <- transp[1,1]
     transp <- transp[-1,]
     
     data <- rbind(data, transp)
-    
 }
-
 columnnames <-  t(cdata[1:(1+102), ])[1,]
 columnnames[1] <- "Kreis"
 colnames(data) <- columnnames
+colnames(data)
 data$variable = str_remove_all( rownames(data), "[0-9]+")
-
-data <- as_tibble(data)
-citizens <- data %>% 
+sapply(data, class)
+# Output: All values are saved as factors --> change them to numeric!!!
+data <- as_tibble(data) %>%
     rename_all( ~ tolower(.) %>% str_remove_all(" ") %>% str_replace("-","_")) %>% 
-    rename_at(vars(3:103), ~ paste0("age_", .)) %>% 
-    mutate_at(vars(3:103), ~ na_if(. , "-") %>% as.numeric()) %>% 
-    mutate(kreisnummer = str_extract(kreis, "[0-9]+"), 
-           kreis = str_remove(kreis, "[0-9]+ +")) %>% 
-    select(kreis, kreisnummer, variable, everything())
-
+    rename_at(vars(3:103), ~ paste0("age_", .)) %>%
+    mutate_all(as.character) %>%
+    mutate_at(vars(3:103), ~ na_if(. , "-") %>% as.numeric()) %>%
+    mutate(kreisnummer = str_extract(kreis, "[0-9]+")) %>% ##########################
+mutate(kreis = str_remove(kreis, "[0-9]+ +")) %>%
+    mutate(age_under_20 = select(., age_0_1:age_19_20) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_20_30 = select(., age_20_21:age_29_30) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_30_40 = select(., age_30_31:age_39_40) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_40_50 = select(., age_40_41:age_49_50) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_50_60 = select(., age_50_51:age_59_60) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_60_70 = select(., age_60_61:age_69_70) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_70_80 = select(., age_70_71:age_79_80) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(age_over_80 = select(., age_80_81:age_100undälter) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(total = select(., c(age_under_20, age_20_30, age_30_40, age_40_50, age_50_60, age_60_70, age_70_80, age_over_80)) %>% rowSums(na.rm = TRUE)) %>%
+    select(kreis, kreisnummer, total, age_under_20:age_over_80, variable)
+data <- filter(data, variable == "Insgesamt")
+# Removing row 'Niedersachsen' and the column 'variable'
+data <- data[-1, -12]
+# Removing rows 'Braunschweig', 'Hannover', 'Hannover,Landeshauptstadt', 'Lüneburg' (appears two times, with the same name), 'Weser-Ems'
+# Removing rows manually/by row number due to the double entry of 'Lüneburg'
+data <- data[-c(1, 12, 14, 21, 33), ]
+# Substitute entries 'NA' by value 0
+data[is.na(data)] = 0
+data$total <- as.numeric(data$total)
+citizens <- data
 write.csv(citizens, "clean_data/citizens_wide.csv", row.names = F)
 
 
@@ -130,15 +168,13 @@ suicides <- data
 write.csv(suicides, "clean_data/suicides_wide.csv", row.names = F)
 
 
-#This needs to be fixed (Niklas?)
 
 
 ##### Calculation of age-standardized suicide mortality rate (SMR) #####
 # The following is calculated for each 'Kreis' - Why? In order to also take into account the age-distribution of a population
 # 1st step: age-specific suicide rate (age specific SR)
 # age-specific SR =  (age-specific no. of suicides / age-specific no. of population) x 100.000 (inhabitants)
-citizens
-suicides
+
 asSR <- citizens
 i <- 4
 while(i <= 11) {
@@ -146,7 +182,7 @@ while(i <= 11) {
     i <- i + 1
 }
 write_csv(asSR, "clean_data/asSR_wide.csv")
-# 2nd step: Caluclation of age-specific proportions of population
+# 2nd step: Calculation of age-specific proportions of population
 # age-specific proportion of population = age-specific no. of population / total no. of population
 asProp <- citizens
 i <- 4
@@ -155,6 +191,7 @@ while(i <= 11) {
     i <- i + 1
 }
 write_csv(asProp, "clean_data/asSR_wide.csv")
+
 # 3rd step: age-standardized suicide mortality rate (SMR)
 # age-standardized SMR = sum(age-specific SR's x age-specific proportion of population)
 asSMR <- citizens
@@ -163,12 +200,20 @@ while(i <= 11) {
     asSMR[,i] <- (asSR[,i] * asProp[,i])
     i <- i + 1
 }
-asSMR %>%
-    mutate(total = select(., c(age_under_20, age_20_30, age_30_40, age_40_50, age_50_60, age_60_70, age_70_80, age_over_80)) %>% rowSums(na.rm = TRUE))
-write_csv(asSMR, "clean_data/asSR_wide.csv")
+
+asSMR <- as_tibble(asSMR) %>%
+    mutate(total = select(., c(age_under_20, age_20_30, age_30_40, age_40_50, age_50_60, age_60_70, age_70_80, age_over_80)) %>% 
+               rowSums(na.rm = TRUE)) %>% 
+    select(Kennziffer = kreisnummer, SMR = total) %>% 
+    arrange(desc(SMR))
+
+
+write.csv(asSMR, "clean_data/asSMR_wide.csv")
+
 ##### Merging processed GISD and SMR #####
 # Merge by row names (by=0 or by="row.names")
-Processed %>%
-    merge(GISD, asSMR, by=0, all=TRUE)
-select()
-write_csv(Processed, "clean_data/processed.csv")
+Processed <-
+    left_join(GISD, asSMR, by="Kennziffer") %>% 
+    arrange(desc(SMR))
+
+write.csv(Processed, "clean_data/Processed_wide.csv")

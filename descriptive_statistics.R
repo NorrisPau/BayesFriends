@@ -15,7 +15,7 @@ deprivation <- read.csv("clean_data/GISD_wide.csv") %>%
     as_tibble() %>% 
     dplyr::rename (kreis_number = Kennziffer, 
             kreis = Raumeinheit,
-            unemployment_rate = ZX_1, 
+            unemployment = ZX_1, 
             employees_residence_technical_university_degree = ZX_2, 
             employment_rate = ZX_3, 
             gross_wage_and_salary= ZX_4,
@@ -63,16 +63,24 @@ rownames(full_summary) <- c("Number of Suicides 2017", "Total Population 2017")
 #full_summary <- rbind(full_summary, deprivation_summary)   #This changes the values - Don't know how to fix now
 
 
-##########Find out distribution for dataset    
-hist(deprivation$unemployment_rate)
-hist(deprivation$net_household_income)
-hist(deprivation$gross_wage_and_salary)
-hist(deprivation$debtor_rate)
-hist(deprivation$school_leavers_without_qualification)
 
+###########Plots
+#1. Plot: Regression line between deprivation index and suicide deaths per 100.000 
+summary(suicides) 
+summary(deprivation)
+# calculate deprivation index as in paper: "The standardized Z-scores for the eight indicators were summed up
+# to create the deprivation index." 
+deprivation <- deprivation %>%  
+    mutate(deprivation = rowSums(.[3:10])) %>% 
+    arrange(desc(deprivation))
 
+f <- deprivation %>%  
+    mutate(employees_residence_technical_university_degree = employees_residence_technical_university_degree*(-1),
+           employment_rate = employment_rate*(-1),
+           gross_wage_and_salary = gross_wage_and_salary*(-1),
+           net_household_income = net_household_income*(-1),
+           tax_revenues = tax_revenues*(-1)) %>% 
+    mutate(deprivation = rowSums(.[3:10])) %>% 
+    arrange(desc(deprivation))
 
-#### Simulate Data
-# citizens_wide: Suicide mortality for each age-group 
-# suicides_wide: Population per kreis and age-group
-# deprivation: index per kreis 
+colnames(deprivation)
