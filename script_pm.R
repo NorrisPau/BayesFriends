@@ -181,7 +181,7 @@ while(i <= 11) {
     asSR[,i] <- (suicides[,i] / citizens[,i]) * 100000
     i <- i + 1
 }
-write_csv(asSR, "clean_data/asSR_wide.csv")
+write.csv(asSR, "clean_data/asSR_wide.csv")
 # 2nd step: Calculation of age-specific proportions of population
 # age-specific proportion of population = age-specific no. of population / total no. of population
 asProp <- citizens
@@ -190,7 +190,7 @@ while(i <= 11) {
     asProp[,i] <- (citizens[,i] / citizens[,3])
     i <- i + 1
 }
-write_csv(asProp, "clean_data/asSR_wide.csv")
+write.csv(asProp, "clean_data/asSR_wide.csv")
 
 # 3rd step: age-standardized suicide mortality rate (SMR)
 # age-standardized SMR = sum(age-specific SR's x age-specific proportion of population)

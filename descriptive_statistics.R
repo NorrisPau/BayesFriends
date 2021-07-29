@@ -69,7 +69,7 @@ full_data %>%  select(-kreisnummer) %>%
 
 ###########Plots
 #1. Plot: Regression line between deprivation index and suicide deaths per 100.000 
-full_data %>%  
+plot <- full_data %>%  
     select(DI, SMR, population_kreis, kreis) %>% 
     ggplot(aes(x = DI, y = SMR, size = population_kreis))+
     stat_smooth(geom = "line",
@@ -82,15 +82,15 @@ full_data %>%
     scale_size_continuous(breaks = seq(50000, 1150000, 100000), name = "Population of Kreis")+
     labs(x = "Deprivation Index", 
          y = "Age-standardized suicide rate (per 100,000)")+
-    theme(legend.position = "vertical") %>% 
-  ggplotly()
+    theme(legend.position = "vertical")
+
+  ggplotly(plot)
 
 #2. Plot: Quantiles of Deprivation Index and Suicide Deaths per 100,000
 
 g <- full_data %>%  
   mutate(quantile_rank = ntile(desc(DI),5)) %>%  
   mutate(quantile_rank = as.factor(quantile_rank))
-
 
 g %>%  
   group_by(quantile_rank) %>%  
@@ -102,6 +102,19 @@ g %>%
   theme(legend.position = "none")
   
 
+g <- full_data %>%  
+  arrange(desc(DI))
 
+#### Check for Multicollinearity : Variance Inflation Factor (VIF) 
 
+library(car)
+model <- lm(SMR  ~ unemployment + employees_residence_technical_university_degree + 
+              employment_rate + gross_wage_and_salary + net_household_income + 
+              school_leavers_without_qualification + debtor_rate + 
+              tax_revenues, data = full_data)
+
+summary(model)
+vif_values <- vif(model)
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+abline(v = 5, lwd = 3, lty=2)
 
